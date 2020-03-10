@@ -5,6 +5,8 @@
 -- "holds cleanup" process which gets split
 -- amongst departments.
 
+-- However, it does also show bibs with no orders or items (totally blind)
+-- with holds, so that's helpful
 
 SELECT 
 MIN (HOLDS.placed_gmt) as "minholddate",

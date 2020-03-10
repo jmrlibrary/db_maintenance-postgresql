@@ -3,7 +3,7 @@
 -- (probably has to do with summing on the item and not the bib?)
 
 SELECT 
-min (hold.placed_gmt),
+min (hold.placed_gmt) as "holdplaced",
 concat( bib_view.record_type_code, bib_view.record_num, 'a') as bibrecnum,
 --item_view.item_status_code
 min (bib_view.title),

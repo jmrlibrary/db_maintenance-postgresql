@@ -1,96 +1,92 @@
-﻿-- TO BE :
--- a list of all bibs which have no circulating items
--- and no nolds
--- and are not suppressed
+﻿with bib_avail_item_count as (
+  select
+    BV.id,
 
--- Should display the bib 690 field (shows Local Voices)
--- and the 500 |x field ? (or wherever denoted as gift)
+(select id from sierra_view.varfield_view where varfield_view.record_id = BV.id and marc_tag = '049' and field_content ilike '%|aPDV%' limit 1 ) 
+     as pdv,
+     (select id from sierra_view.varfield_view where varfield_view.record_id = BV.id and marc_tag in ('500', '530') and field_content ilike '%Minimal Record%' limit 1 ) 
+     as on_order_minimal_record,
 
-SELECT 
-concat( bib_view.record_type_code, bib_view.record_num, 'a') as bibrecnum,
-min (bib_view.title),
-MIN (BIB_VIEW.BCODE2) AS MATTYPE,
-min (bib_view.bcode3) as bibstatus,
-max (hold.id) as Hold_ID,
-max (order_record.order_date_gmt) AS ORDER_CREATE_DATE,
-max (order_record.received_date_gmt) AS ORDER_RCD_DATE,
-max (bib_view.record_creation_date_gmt) AS BIB_CREATE_DATE,
-max (record_metadata.record_last_updated_gmt) as RECORD_LAST_UPDATED,
-MAX (record_metadata.previous_last_updated_gmt) as PREVIOUS_LAST_UPDATED,
-
-sum (
-CASE
-when item_view.item_status_code IN ('-', '!', 't')
-then 1
-else 0
-end) as OKITEMS,
-
-sum(
-CASE
-when item_view.item_status_code NOT IN ('-', '!', 't')
-then 1
-else 0
-end) as NOTOKITEMS
+string_agg( orderview.vendor_record_code, ', ') as vendors,
+     
+    SUM (
+      case
+        when ITEMVIEW.item_status_code in ('-', 't', '!')
+        and ITEMVIEW.icode2 != 'n'
+        and ITEMVIEW.itype_code_num not in (100, /* non-circulating (1) : we should be agnostic on suppressing non-circulating things */  99, 76, 70, 78, 77, 40) then 1
+        else 0 
+      end
+    ) as item_avail_count,
+    count(ORDERVIEW.id) as order_count,
+    /*
+    sum (
+case when ORDERVIEW.record_creation_date_gmt > now() - interval '1 year' then 1 else 0 end
 
 
-FROM
-sierra_view.bib_view
+) as order_live_count,
+*/
+min ( 
+date_part('day', now() - ORDERVIEW.record_creation_date_gmt) )::int
 
-LEFT JOIN
-sierra_view.bib_record_item_record_link
-ON
-bib_view.id = bib_record_item_record_link.bib_record_id
-
-LEFT JOIN
-sierra_view.item_view
-ON
-item_view.id = bib_record_item_record_link.item_record_id
-
-LEFT JOIN
-sierra_view.hold
-ON
-(hold.record_id = item_view.id
-OR
-hold.record_id = BIB_VIEW.id
+as min_days_since_order_created
+  from
+    sierra_view.bib_view BV
+    /* 
+                        link to item records 
+                        */
+    left join sierra_view.bib_record_item_record_link BILINK on BILINK.BIB_RECORD_ID = BV.ID
+    LEFT join sierra_view.item_view ITEMVIEW on bilink.item_record_id = ITEMVIEW.id
+    /* 
+                        link to order records 
+                        */
+    left join sierra_view.bib_record_order_record_link BOLINK on BOLINK.BIB_RECORD_ID = BV.id
+    left join sierra_view.order_view orderview on BOLINK.order_record_id = orderview.id
+  where
+    /*
+           only look at books, cds (music and audio), undesignated, 
+           large print, bluray, dvd
+            at mat type 
+            */
+     bv.bcode2 in ('a', 'z', '-', 'l', 'b', 'd', 'j')
+    /*
+                we only care about bibs that are suppressed, for this purpose, 
+                because we want to unsuppress them
+                */
+                  /*
+can fine-tune / invert the results based on this : 
+  */
+    and bv.bcode3 != 'n'
+    /*
+    make sure we don't delete anything the catalogers might
+    have just imported
+    */
+    and bv.record_creation_date_gmt <= now() - interval '1 month'
+    and orderview.order_status_code not in ('z')
+  GROUP BY
+    1
 )
+select
+'b' || BIBVIEW.record_num || 'a' as brecnum,
+title,
+cataloging_date_gmt as cat_date,
+date_part('day', now() - cataloging_date_gmt) ::int
 
-left join
-sierra_view.patron_record
-on
-hold.patron_record_id = patron_record.id
+as days_since_cataloged,
 
-left join
-sierra_view.bib_record_order_record_link
-on
-bib_view.id = bib_record_order_record_link.bib_record_id
+  *
+from
+  bib_avail_item_count BAIC,
+  sierra_view.bib_view BIBVIEW
+WHERE
+  BIBVIEW.ID = BAIC.ID
+  /*
+can fine-tune / invert the results based on this : 
+  */
+  and item_avail_count = 0
+--  and order_live_count = 0
+  --and min_days_since_order_created > 450
 
-left join
-sierra_view.order_record
-on
-bib_record_order_record_link.order_record_id = order_record.record_id
+  and on_order_minimal_record is null
+  and pdv is not null
 
-left join 
-sierra_view.record_metadata
-on
-item_view.id = record_metadata.id
-
-where 
-bib_view.bcode3 not in ('n') 
--- AND patron_record.id not in (18)
-and hold.id is null
-AND bib_view.bcode2 not in ('q', 'o', 's', 'm', 'n', 'k')
-
-group by 
-bibrecnum
-
-having 
-sum (
-CASE
-when item_view.item_status_code IN ('-', '!', 't')
-then 1
-else 0
-end) = 0
-
-ORDER BY
--- item_view.item_status_code,
-6, 1,8;
+order by min_days_since_order_created;

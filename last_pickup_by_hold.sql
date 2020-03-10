@@ -1,0 +1,2 @@
+﻿with a as (select patron_record_id, max(placed_gmt) as placed_gmt from sierra_view.hold group by patron_record_id)
+select hold.* from a, sierra_view.hold where hold.patron_record_id = a.patron_record_id and hold.placed_gmt = a.placed_gmt;

@@ -1,7 +1,10 @@
-﻿SELECT 
-concat('i', item_view.record_num, 'a'),
-count (item_view.record_num),
-  max(bib_record.bcode2)
+﻿-- Moved into node-js-database-tutorial vscode project --
+
+
+SELECT 
+concat('i', item_view.record_num, 'a') as "recnum",
+count (item_view.record_num) as "holds",
+  max(bib_record.bcode2) as "bcode2"
 FROM 
   sierra_view.hold, 
   sierra_view.item_view, 
@@ -24,5 +27,4 @@ count (item_view.record_num) > 1
 
 order by
 count (item_view.record_num) desc
-
 ;
