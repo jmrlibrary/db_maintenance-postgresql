@@ -26,7 +26,13 @@ select * from first_loc order by first_loc.content desc limit 1
 -- select * from max_call
 -- union select * from min_call
 
-select location_code, content, barcode, inventory_gmt, item_status_code, due_gmt, *  
+select    case when (inventory_gmt is null or inventory_gmt < (now() - interval '2 days') ::date )
+   and due_gmt is null
+   and item_status_code = '-'
+   then true else null end as needs_inva_date
+, location_code, content, barcode, inventory_gmt, item_status_code, due_gmt, 
+
+*  
 from sierra_view.item_view IV join sierra_view.subfield_view SV on IV.id = sv.record_id
 left join sierra_view.checkout C on C.item_record_id = iv.id
 
