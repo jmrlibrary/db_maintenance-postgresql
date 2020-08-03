@@ -1,4 +1,4 @@
-﻿-- 
+﻿-- weekly. last run 7/9/2020
 
 select 
 max(BIBITEMLINK.bib_record_id) as "iiibrecid",
