@@ -10,6 +10,7 @@ and content ilike '%overdrive%'
 group by content
 having count(*) > 1
 ),
+
 duplicate_bibs as (
 select subfield_view.* from 
 sierra_view.subfield_view , duplicate_content D
