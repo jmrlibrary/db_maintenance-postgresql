@@ -1,4 +1,5 @@
-﻿-- weekly. last run 7/9/2020
+-- weekly. last run 7/9/2020
+-- only returns bibs with at least 1 item (?)
 
 select 
 max(BIBITEMLINK.bib_record_id) as "iiibrecid",
@@ -24,9 +25,19 @@ LEFT JOIN sierra_view.bib_view BIBVIEW
 on BIBITEMLINK.bib_record_id = BIBVIEW.id
 
 where
+-- item is not available, on hold shelf, or in transit
 ITEMVIEW.item_status_code IN ('-', '!', 't')
+
+-- item is not suppressed
+AND ITEMVIEW.icode2 NOT IN ('n')
+
+-- item is not certain types of items
 AND ITEMVIEW.itype_code_num NOT IN (60, 50, 62, 54, 53, 1, 0, 25, 26, 27, 0, 70, 72, 100, 77, 99)
+
+-- item is not in professional collections
 AND ITEMVIEW.location_code NOT IN ('apc', 'cpc', 'gpc', 'lpc', 'mjpc', 'mpc', 'npc', 'rpc', 'spc')
+
+-- bib is suppressed
 AND "bcode3" = 'n'
 
 GROUP BY
